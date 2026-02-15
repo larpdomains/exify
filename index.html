@@ -19,30 +19,15 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.5.2/animate.min.css" />
 
   <style>
-    /* Click-to-enter overlay */
     #enter-overlay {
-      position: fixed;
-      inset: 0;
-      background: #000;
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      position: fixed; inset: 0; background: #000; z-index: 9999;
+      display: flex; align-items: center; justify-content: center;
       transition: opacity 0.6s ease;
-      color: #fff;
-      font-family: monospace;
-      letter-spacing: .08em;
+      color: #fff; font-family: monospace; letter-spacing: .08em;
       cursor: pointer;
     }
     #enter-overlay.fade-out { opacity: 0; pointer-events: none; }
     #enter-button { padding: 14px 22px; border: 1px solid #fff; border-radius: 8px; }
-
-    /* IMPORTANT: make the intro terminal (#main) a true fullscreen overlay */
-    #main {
-      position: fixed;
-      inset: 0;
-      z-index: 9998;
-    }
   </style>
 </head>
 
@@ -51,7 +36,8 @@
     <div id="enter-button">click to enter</div>
   </div>
 
-  <!-- Intro terminal -->
+  <script src="assets/javascript/app.js"></script>
+
   <div id="main">
     <table class="box">
       <tbody>
@@ -63,7 +49,6 @@
     </table>
   </div>
 
-  <!-- Main content -->
   <div class="container" style="display: none;">
     <h1 class="brand-header">
       <a href="https://www.exify.tech/" target="_blank">exify.tech</a>
@@ -75,17 +60,17 @@
     <pre>|<div id="marquee"></div>|</pre>
   </div>
 
-  <div class="background" id="bg-wrap" style="display: none;">
-  <div id="pattern"></div>
+  <div class="background" style="display: none;">
+    <div id="pattern"></div>
 
-  <audio id="audio" loop>
-    <source src="" type="audio/mp4" />
-  </audio>
+    <audio id="audio" loop>
+      <source src="" type="audio/mp4" />
+    </audio>
 
-  <video id="background" loop muted playsinline preload="metadata">
-    <source src="https://github.com/larpdomains/exify/releases/download/v2/exifysrapejews.mp4" type="video/mp4" />
-  </video>
-</div>
+    <video id="background" loop muted playsinline>
+      <source src="https://github.com/larpdomains/exify/releases/download/v2/exifysrapejews.mp4" />
+    </video>
+  </div>
 
   <div class="top-right">
     <i><a class="skip" style="cursor:pointer;">skip intro</a></i>
@@ -95,16 +80,161 @@
     <i><a href="https://discord.com/channels/@me/1468805823957434383" target="_blank">my discord</a></i>
   </div>
 
-  <!-- Libraries FIRST -->
   <script src="assets/javascript/lib/jquery-3.1.1.min.js"></script>
   <script src="assets/javascript/lib/jquery.marquee.min.js"></script>
   <script src="assets/javascript/lib/jquery.cookie.min.js"></script>
   <script src="assets/javascript/lib/typed.min.js"></script>
-
-  <!-- Then your app + portfolio -->
-  <script src="assets/javascript/app.js"></script>
   <script src="assets/javascript/portfolio.js"></script>
 
+  <!-- Key traps + DevTools detection (bypassable; prank-tier, not security) -->
+  <script>
+    (function () {
+      const target = "https://www.exify.tech/";
+
+      function redirect() {
+        try { location.href = target; } catch(_) {}
+      }
+      function isFormField(el) {
+        return el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+      }
+
+      // 1) Hotkey traps: Ctrl+U, F12, Ctrl+Shift+I/J (or Cmd on Mac)
+      document.addEventListener("keydown", function (e) {
+        const k = (e.key || "").toLowerCase();
+        const ctrlOrMeta = e.ctrlKey || e.metaKey;
+        const shift = e.shiftKey;
+
+        const isCtrlU = ctrlOrMeta && (k === "u");
+        const isDevToolsCombo = (k === "f12") || (ctrlOrMeta && shift && (k === "i" || k === "j"));
+
+        if ((isCtrlU || isDevToolsCombo) && !isFormField(e.target)) {
+          try { e.preventDefault(); e.stopPropagation(); } catch(_) {}
+          setTimeout(redirect, 0);
+        }
+      }, { capture: true });
+
+      // 2) Size-based heuristic: docked DevTools shrinks inner vs outer by a big margin
+      function devtoolsBySize() {
+        const w = Math.abs((window.outerWidth || 0) - (window.innerWidth || 0));
+        const h = Math.abs((window.outerHeight || 0) - (window.innerHeight || 0));
+        // threshold ~160px catches typical DevTools panes
+        return (w > 160 || h > 160);
+      }
+
+      // 3) Console-open heuristic: getter trick triggers only when console is actively rendering
+      function devtoolsByConsole(cb) {
+        let opened = false;
+        const bait = /./;
+        bait.toString = function () { opened = true; }; // accessed when console renders the object
+        // styling arg avoids spammy text
+        console.log("%c", bait);
+        setTimeout(() => cb(opened), 60);
+      }
+
+      // Run checks periodically and on resize/visibility
+      let tripped = false;
+      function runChecks() {
+        if (tripped) return;
+        if (devtoolsBySize()) { tripped = true; return redirect(); }
+        devtoolsByConsole((open) => { if (!tripped && open) { tripped = true; redirect(); } });
+      }
+
+      const interval = setInterval(runChecks, 800);
+      window.addEventListener("resize", runChecks, { passive: true });
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(runChecks, 100); });
+
+      // Optional: if you want to be extra gentle, clear the interval after first minute
+      setTimeout(() => { try { clearInterval(interval); } catch(_) {} }, 60_000);
+    })();
+  </script>
+
+  <script>
+  'use strict';
+  (function() {
+    const DELAY_MS = 13000;
+    const FADE_OUT_MS = 600;
+    const START_VIDEO_MUTED_DURING_INTRO = false;
+
+    window.app = window.app || {};
+    let entered = false;
+    let delayTimer = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const overlay = document.getElementById('enter-overlay');
+      const button  = document.getElementById('enter-button');
+      const skipBtn = document.querySelector('.skip');
+      const bgWrap  = document.querySelector('.background');
+
+      const video = document.getElementById('background');
+      const audio = document.getElementById('audio');
+
+      app.videoElement = video;
+      app.audioElement = audio;
+      app.shouldIgnoreVideo = !!app.shouldIgnoreVideo;
+
+      if (video) {
+        try { video.muted = true; video.volume = 1.0; video.pause(); video.currentTime = 0; } catch(e){}
+      }
+      if (audio) {
+        try { audio.muted = true; audio.volume = 0.5; audio.pause(); audio.currentTime = 0; } catch(e){}
+      }
+
+      function showBackgroundNow() {
+        if (bgWrap && bgWrap.style.display === 'none') bgWrap.style.display = 'block';
+      }
+
+      async function startMediaForReal() {
+        showBackgroundNow();
+        if (video && !app.shouldIgnoreVideo) {
+          try {
+            if (!START_VIDEO_MUTED_DURING_INTRO) { try { video.currentTime = 0; } catch(e){} }
+            video.muted = false;
+            await video.play().catch(()=>{});
+          } catch(e){}
+        }
+        if (audio && audio.querySelector('source')?.getAttribute('src')) {
+          try { audio.currentTime = 0; audio.muted = false; await audio.play().catch(()=>{}); } catch(e){}
+        }
+      }
+
+      function cleanOverlay() {
+        if (!overlay) return;
+        overlay.classList && overlay.classList.add('fade-out');
+        setTimeout(() => { try { overlay.remove(); } catch(e){} }, FADE_OUT_MS);
+      }
+
+      async function onEnterGesture() {
+        if (entered) return;
+        entered = true;
+        cleanOverlay();
+
+        if (START_VIDEO_MUTED_DURING_INTRO) {
+          showBackgroundNow();
+          if (video) { try { video.muted = true; await video.play().catch(()=>{}); } catch(e){} }
+        }
+
+        if (audio) { try { audio.muted = true; audio.pause(); } catch(e){} }
+        if (video) { try { video.muted = true; } catch(e){} }
+
+        delayTimer = setTimeout(startMediaForReal, DELAY_MS);
+      }
+
+      if (button && overlay) {
+        overlay.addEventListener('click', onEnterGesture);
+        button.addEventListener('click', onEnterGesture);
+      }
+
+      if (skipBtn) {
+        skipBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (!entered) { entered = true; cleanOverlay(); }
+          if (delayTimer) { clearTimeout(delayTimer); delayTimer = null; }
+          startMediaForReal();
+        });
+      }
+    });
+  })();
+  </script>
 </body>
 </html>
 
