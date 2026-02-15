@@ -37,9 +37,9 @@ const mobileAndTabletCheck = () =>
 
 $(document).ready(() => {
   const links = [
-    { name: 'my free macro',   link: 'https://youjustgotiplogged.com/' },
-    { name: 'cheapest tokens', link: 'https://youjustgotiplogged.com/' },
-    { name: 'cheap robux',     link: 'https://youjustgotiplogged.com/' }
+    { name: 'Matrix Scripts',   link: 'https://configs.xim.tech/configs/leaked-r6-configs-pc-console-sab/' },
+    { name: 'Discord Server', link: 'https://discord.gg/tGMpY9Vsk9' },
+    { name: 'Gay Men Kissing',     link: 'https://www.gettyimages.com/photos/gay-men-kissing' }
   ];
 
   for (let i in links) {
@@ -149,7 +149,7 @@ $.getJSON(ipgeolocation, (data) => {
 
           clearCursor();
 
-          writeLine([`<i style='color: #F62459'>made by @dq1h </i>`], 120, 500, () => {
+          writeLine([`<i style='color: #F62459'>made by exify </i>`], 120, 500, () => {
             timeouts.push(
               setTimeout(() => {
                 if (app.skippedIntro) return;
@@ -229,4 +229,5 @@ const skipIntro = () => {
 };
 
 const clearCursor = () => $('span').siblings('.typed-cursor').css('opacity', '0');
+
 
