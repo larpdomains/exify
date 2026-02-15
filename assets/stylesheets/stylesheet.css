@@ -141,10 +141,36 @@ pre { font-size: 1.15em; }
   transition: all 0.3s ease;
 }
 
+/* ===== FIX INTRO SPACING (paste at bottom) ===== */
 #main {
   position: fixed;
   inset: 0;
   z-index: 9998;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+#main .box {
+  height: auto !important;           /* stop 100% height row spreading */
+  width: 100%;
+  overflow: hidden;                  /* keep it clean */
+}
+
+#main table {
+  height: auto !important;
+  border-collapse: collapse;
+}
+
+#main td {
+  vertical-align: top;
+  padding: 0;                        /* remove extra gaps */
+}
+
+#main span {
+  display: block;
+  line-height: 1.2;                  /* “one line” spacing vibe */
+  white-space: pre;
 }
 
 #enter-button:hover { background: white; color: black; }
