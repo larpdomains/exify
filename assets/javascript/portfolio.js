@@ -313,11 +313,34 @@ const skipIntro = () => {
           }
         }
 
-        $('.marquee-container').css('visibility', 'visible').hide().fadeIn(100);
-        $('.marquee-container').animateCss('zoomIn');
-        $('.container').fadeIn();
+        // Show background ONLY after intro is removed
+const $bg = $('.background');
+$bg.stop(true, true);
 
-        $('.background').fadeIn(200, () => {
+// make sure it was hidden (display:none) then fade in
+$bg.css('display', 'block').hide().fadeIn(200, () => {
+  if (!app.shouldIgnoreVideo && entered) {
+    try {
+      if (app.videoElement) {
+        app.videoElement.muted = false;
+        app.videoElement.play().catch(() => {});
+      }
+      if (app.audioElement) {
+        app.audioElement.muted = false;
+        app.audioElement.play().catch(() => {});
+      }
+    } catch (e) {}
+  }
+
+  // set volume AFTER start to avoid some browser weirdness
+  if (!app.shouldIgnoreVideo && entered && app.audioElement) {
+    try { app.audioElement.volume = app.musicVolume || 0.5; } catch(e){}
+  }
+});
+
+$('.marquee-container').css('visibility', 'visible').hide().fadeIn(100);
+$('.marquee-container').animateCss('zoomIn');
+$('.container').fadeIn();
           if (!app.shouldIgnoreVideo && entered && app.audioElement) {
             try {
               app.audioElement.volume = app.musicVolume || 0.5;
@@ -327,4 +350,5 @@ const skipIntro = () => {
       }, 200);
     });
 };
+
 
