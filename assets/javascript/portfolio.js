@@ -1,354 +1,309 @@
 'use strict';
 
 /*
-  DROP-IN FIXED portfolio.js
+  CLEAN portfolio.js (drop-in)
   Fixes:
-  - Intro work keeps running in background (timeouts/intervals/Typed instances)
-  - Stutter when intro disappears
-  - Ghost "top strip" remnants (cleanup + stop animations properly)
-  Notes:
-  - Requires jQuery + Typed.js + jquery.cookie + marquee plugin like your original.
+  - Intro timers/Typed stop properly
+  - Background video/audio ONLY show/play after intro is over (skipIntro)
+  - No leftover callbacks / mismatched braces
 */
 
-let entered = false;
+var entered = false;
 
-const ipgeolocation =
+var ipgeolocation =
   'https://api.ipgeolocation.io/ipgeo?apiKey=31ece79449854d1c8059ec105e82b33d';
 
-// --- INTRO WORK TRACKERS (timeouts/intervals/Typed) ---
-const introTimeouts = [];
-const introIntervals = [];
-const introTypers = [];
+// --- TRACKERS (timeouts/intervals/Typed) ---
+var introTimeouts = [];
+var introIntervals = [];
+var introTypers = [];
 
-const safeTimeout = (fn, ms) => {
-  const id = setTimeout(fn, ms);
+function safeTimeout(fn, ms) {
+  var id = setTimeout(fn, ms);
   introTimeouts.push(id);
   return id;
-};
+}
 
-const safeInterval = (fn, ms) => {
-  const id = setInterval(fn, ms);
+function safeInterval(fn, ms) {
+  var id = setInterval(fn, ms);
   introIntervals.push(id);
   return id;
-};
+}
 
-const killIntroWork = () => {
+function killIntroWork() {
   // stop timers
-  introTimeouts.forEach(clearTimeout);
-  introIntervals.forEach(clearInterval);
+  for (var i = 0; i < introTimeouts.length; i++) clearTimeout(introTimeouts[i]);
+  for (var j = 0; j < introIntervals.length; j++) clearInterval(introIntervals[j]);
   introTimeouts.length = 0;
   introIntervals.length = 0;
 
-  // destroy Typed instances so they STOP running
-  introTypers.forEach((t) => {
-    try {
-      t.destroy();
-    } catch (e) {}
-  });
+  // destroy Typed instances
+  for (var k = 0; k < introTypers.length; k++) {
+    try { introTypers[k].destroy(); } catch (e) {}
+  }
   introTypers.length = 0;
 
-  // remove any leftover Typed cursor nodes
-  $('.typed-cursor').remove();
+  // remove cursors
+  if (window.jQuery) $('.typed-cursor').remove();
 
-  // stop any jQuery animations on intro container if it still exists
-  $('#main').stop(true, true);
-};
+  // stop animations if still exists
+  if (window.jQuery) $('#main').stop(true, true);
+}
 
-// Cursor helper
-const clearCursor = () => $('.typed-cursor').css('opacity', '0');
+function clearCursor() {
+  if (window.jQuery) $('.typed-cursor').css('opacity', '0');
+}
 
-// Mobile check
-const mobileAndTabletCheck = () =>
-  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-    navigator.userAgent
-  );
+function mobileAndTabletCheck() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
 
-// --- ENTER OVERLAY (your click-to-enter layer) ---
-document.addEventListener('DOMContentLoaded', () => {
-  const overlay = document.getElementById('enter-overlay');
-  const button = document.getElementById('enter-button');
+// --- ENTER OVERLAY ---
+document.addEventListener('DOMContentLoaded', function () {
+  var overlay = document.getElementById('enter-overlay');
+  var button = document.getElementById('enter-button');
 
-  // TODO: app must exist globally (as in your original setup)
-  app.videoElement = document.getElementById('background');
-  app.audioElement = document.getElementById('audio');
+  // app must exist (your app.js does this)
+  if (window.app) {
+    app.videoElement = document.getElementById('background');
+    app.audioElement = document.getElementById('audio');
+  }
 
   if (button && overlay) {
-    button.addEventListener('click', () => {
+    button.addEventListener('click', function () {
       entered = true;
 
-      if (!app.shouldIgnoreVideo) {
-        if (app.videoElement) {
-          app.videoElement.muted = false;
-          app.videoElement.play().catch(() => {});
-        }
-        if (app.audioElement) {
-          app.audioElement.muted = false;
-          app.audioElement.play().catch(() => {});
-        }
-      }
+      // Only start media AFTER intro ends. During intro: keep hidden + muted.
+      // So here we only fade overlay. Media will start in skipIntro().
 
       overlay.classList.add('fade-out');
-      setTimeout(() => overlay.remove(), 600);
+      setTimeout(function () {
+        try { overlay.remove(); } catch (e) {}
+      }, 600);
     });
   }
 });
 
 // Disable right click
-document.addEventListener('contextmenu', (event) => event.preventDefault());
+document.addEventListener('contextmenu', function (event) { event.preventDefault(); });
 
-// Spacebar background toggle
-document.body.onkeyup = (event) => {
-  if (event.keyCode == 32 && app.skippedIntro) {
+// Spacebar background toggle (after intro)
+document.body.onkeyup = function (event) {
+  if (!window.app) return;
+  if (event.keyCode === 32 && app.skippedIntro) {
     if (app.backgroundToggler) {
       if (entered && !app.shouldIgnoreVideo) {
-        app.videoElement && app.videoElement.play();
-        app.audioElement && app.audioElement.play();
+        if (app.videoElement) app.videoElement.play();
+        if (app.audioElement) app.audioElement.play();
       }
     } else {
-      app.videoElement && app.videoElement.pause();
-      app.audioElement && app.audioElement.pause();
+      if (app.videoElement) app.videoElement.pause();
+      if (app.audioElement) app.audioElement.pause();
     }
-    return (app.backgroundToggler = !app.backgroundToggler);
+    app.backgroundToggler = !app.backgroundToggler;
   }
 };
 
-// Make "troll remove" interval stoppable (no more forever background work)
-safeInterval(() => {
-  $('.troll').remove();
+// Troll cleanup (stoppable)
+safeInterval(function () {
+  if (window.jQuery) $('.troll').remove();
 }, 600);
 
 // Skip button
-$('.skip').click(() => {
-  skipIntro();
-});
+if (window.jQuery) {
+  $('.skip').click(function () { skipIntro(); });
+}
 
-// Small helper for CSS animations (your original)
-$.fn.extend({
-  animateCss: function (animationName) {
-    const animationEnd =
-      'webkitAnimationEnd mozAnimationEnd MSAnimationEnd oanimationend animationend';
+// animateCss helper
+if (window.jQuery) {
+  $.fn.extend({
+    animateCss: function (animationName) {
+      var animationEnd = 'webkitAnimationEnd mozAnimationEnd MSAnimationEnd oanimationend animationend';
+      this.addClass('animated ' + animationName).one(animationEnd, function () {
+        $(this).removeClass('animated ' + animationName);
+      });
+      return this;
+    }
+  });
+}
 
-    this.addClass(`animated ${animationName}`).one(animationEnd, () => {
-      $(this).removeClass(`animated ${animationName}`);
-    });
+// Typed line writer
+function writeLine(text, speed, timeout, callback) {
+  if (!window.app) return;
 
-    return this;
-  },
-});
+  if (typeof timeout !== 'number') {
+    callback = timeout;
+    timeout = 0;
+  }
 
-// Typed line writer (fixed to track timeout + Typed instance)
-const writeLine = (text, speed, timeout, callback) => {
-  timeout = typeof timeout === 'number' ? timeout : [0, (callback = timeout)];
+  var lineNumber = (app.id !== 2) ? (++app.id) : (app.id += 2);
 
-  const lineNumber = app.id !== 2 ? ++app.id : (app.id += 2);
-
-  safeTimeout(() => {
+  safeTimeout(function () {
     if (app.skippedIntro) return;
 
-    const t = new Typed(`#line${lineNumber}`, {
+    var t = new Typed('#line' + lineNumber, {
       strings: text,
       typeSpeed: speed,
-      onComplete: callback,
+      onComplete: callback
     });
 
     introTypers.push(t);
   }, timeout);
-};
-
-// Document ready
-$(document).ready(() => {
-  const links = [
-    {
-      name: 'Matrix Scripts',
-      link: 'https://configs.xim.tech/configs/leaked-r6-configs-pc-console-sab/',
-    },
-    { name: 'Discord Server', link: 'https://discord.gg/tGMpY9Vsk9' },
-    { name: 'Gay Men Kissing', link: 'https://www.gettyimages.com/photos/gay-men-kissing' },
-  ];
-
-  for (let i in links) {
-    let link = links[i];
-    $('#marquee').append(`<a href="${link.link}" target="_blank">${link.name}</a>`);
-    link = $('#marquee').children('a').last();
-
-    if (i != links.length - 1)
-      $('#marquee').append(' <img class="emoticon" src="assets/others/dot.png"> ');
-  }
-
-  if (mobileAndTabletCheck()) {
-    $('#background').replaceWith(
-      '<div id="background" style="background-image: url(assets/images/mobile-background.jpg);"></div>'
-    );
-    app.shouldIgnoreVideo = true;
-  }
-
-  app.titleChanger(['on top', 'exify', 'on top', 'exify', 'on top']);
-  app.iconChanger([
-    'assets/icons/rose1.jpg',
-    'assets/icons/rose2.jpg',
-    'assets/icons/rose3.jpg',
-    'assets/icons/rose4.jpg',
-    'assets/icons/rose5.jpg',
-    'assets/icons/rose6.jpg',
-    'assets/icons/rose7.jpg',
-    'assets/icons/rose7.jpg',
-    'assets/icons/rose1.jpg',
-  ]);
-});
-
-// Restore video time
-if ($.cookie('videoTime')) {
-  if (app.videoElement) app.videoElement.currentTime = $.cookie('videoTime');
-  if (app.audioElement) app.audioElement.currentTime = $.cookie('videoTime');
 }
 
-// Intro flow (fixed: every timeout is tracked)
-$.getJSON(ipgeolocation, (data) => {
-  writeLine(
-    [
-      'Authenticating...',
-      "Granting access to <span style='font-size: 14px; color: #06d;'>[unknown]</span>...",
-    ],
-    30,
-    () => {
-      if (app.skippedIntro) return;
+// Document ready
+if (window.jQuery) {
+  $(document).ready(function () {
+    var links = [
+      { name: 'Matrix Scripts', link: 'https://configs.xim.tech/configs/leaked-r6-configs-pc-console-sab/' },
+      { name: 'Discord Server', link: 'https://discord.gg/tGMpY9Vsk9' },
+      { name: 'Gallery', link: 'https://www.gettyimages.com/photos/gay-men-kissing' }
+    ];
 
-      clearCursor();
-
-      const usernames = ['user', 'dude'];
-      const ip = data.ip ? data.ip : usernames[Math.floor(Math.random() * usernames.length)];
-      const country = data.country_name ? data.country_name : 'your country';
-
-      writeLine(
-        [
-          "Access granted! <span style='font-size: 14px; color: #0f0;'>[success]</span>",
-          `Welcome back, <i style='color: #0f0'>${ip}</i>! By the way, nice to see someone from ${country} here!`,
-        ],
-        30,
-        500,
-        () => {
-          if (app.skippedIntro) return;
-
-          clearCursor();
-
-          writeLine([`<i style='color: #F62459'>made by exify </i>`], 120, 500, () => {
-            safeTimeout(() => {
-              if (app.skippedIntro) return;
-
-              clearCursor();
-
-              safeTimeout(() => {
-                skipIntro();
-              }, 500);
-            }, 1000);
-          });
-        }
-      );
+    for (var i = 0; i < links.length; i++) {
+      $('#marquee').append('<a href="' + links[i].link + '" target="_blank">' + links[i].name + '</a>');
+      if (i !== links.length - 1) {
+        $('#marquee').append(' <img class="emoticon" src="assets/others/dot.png"> ');
+      }
     }
-  );
-});
 
-// --- MAIN FIX: skipIntro now truly stops everything before removing DOM ---
-const skipIntro = () => {
+    if (mobileAndTabletCheck()) {
+      $('#background').replaceWith('<div id="background" style="background-image: url(assets/images/mobile-background.jpg);"></div>');
+      app.shouldIgnoreVideo = true;
+    }
+
+    app.titleChanger(['on top', 'exify', 'on top', 'exify', 'on top']);
+    app.iconChanger([
+      'assets/icons/rose1.jpg','assets/icons/rose2.jpg','assets/icons/rose3.jpg','assets/icons/rose4.jpg',
+      'assets/icons/rose5.jpg','assets/icons/rose6.jpg','assets/icons/rose7.jpg','assets/icons/rose7.jpg',
+      'assets/icons/rose1.jpg'
+    ]);
+  });
+}
+
+// Restore video time
+if (window.jQuery && $.cookie('videoTime')) {
+  if (window.app && app.videoElement) app.videoElement.currentTime = $.cookie('videoTime');
+  if (window.app && app.audioElement) app.audioElement.currentTime = $.cookie('videoTime');
+}
+
+// Intro flow
+if (window.jQuery) {
+  $.getJSON(ipgeolocation, function (data) {
+    writeLine(
+      [
+        'Authenticating...',
+        "Granting access to <span style='font-size: 14px; color: #06d;'>[unknown]</span>..."
+      ],
+      30,
+      0,
+      function () {
+        if (app.skippedIntro) return;
+
+        clearCursor();
+
+        var usernames = ['user', 'dude'];
+        var ip = data && data.ip ? data.ip : usernames[Math.floor(Math.random() * usernames.length)];
+        var country = data && data.country_name ? data.country_name : 'your country';
+
+        writeLine(
+          [
+            "Access granted! <span style='font-size: 14px; color: #0f0;'>[success]</span>",
+            "Welcome back, <i style='color: #0f0'>" + ip + "</i>! By the way, nice to see someone from " + country + " here!"
+          ],
+          30,
+          500,
+          function () {
+            if (app.skippedIntro) return;
+
+            clearCursor();
+
+            writeLine(["<i style='color: #F62459'>made by exify </i>"], 120, 500, function () {
+              safeTimeout(function () {
+                if (app.skippedIntro) return;
+                clearCursor();
+                safeTimeout(function () { skipIntro(); }, 500);
+              }, 1000);
+            });
+          }
+        );
+      }
+    );
+  });
+}
+
+// --- skipIntro: stops work, removes intro, then shows/plays background ---
+function skipIntro() {
+  if (!window.app) return;
   if (app.skippedIntro) return;
 
   app.skippedIntro = true;
 
-  // ✅ stop timers + intervals + Typed first
   killIntroWork();
 
-  // remove any top-right elements cleanly
-  $('.top-right').remove();
+  if (window.jQuery) {
+    $('.top-right').remove();
 
-  // Fade out intro/main terminal container safely
-  $('#main')
-    .stop(true, true)
-    .fadeOut(120, function () {
+    $('#main').stop(true, true).fadeOut(120, function () {
       $(this).remove();
 
-      // Marquee start
+      // start marquee
       $('#marquee').marquee({
         duration: 15000,
         gap: 420,
         delayBeforeStart: 1000,
         direction: 'left',
-        duplicated: true,
+        duplicated: true
       });
 
-      safeTimeout(() => {
-        $('.brand-header').animateCss(
-          app.effects[Math.floor(Math.random() * app.effects.length)]
-        );
+      safeTimeout(function () {
+        $('.brand-header').animateCss(app.effects[Math.floor(Math.random() * app.effects.length)]);
       }, 200);
 
-      safeTimeout(() => {
-        const t = new Typed('#brand', {
+      safeTimeout(function () {
+        new Typed('#brand', {
           strings: app.brandDescription,
           typeSpeed: 40,
-          onComplete: () => {
-            clearCursor();
-          },
+          onComplete: function () { clearCursor(); }
         });
-        // This is not "intro" anymore, but still keep reference so we can kill if needed
-        // (optional)
       }, 1350);
 
-      safeTimeout(() => {
-        if (!app.shouldIgnoreVideo && entered) {
-          app.videoElement && app.videoElement.play();
-          app.audioElement && app.audioElement.play();
-        }
-
-        if (app.videoElement) {
-          // avoid stacking multiple listeners if skipIntro somehow runs twice
-          if (!app._timeupdateBound) {
-            app._timeupdateBound = true;
-            app.videoElement.addEventListener(
-              'timeupdate',
-              () => {
-                $.cookie('videoTime', app.videoElement.currentTime, { expires: 1 });
-              },
-              false
-            );
-          }
-        }
-
-        // Show background ONLY after intro is removed
-const $bg = $('.background');
-$bg.stop(true, true);
-
-// make sure it was hidden (display:none) then fade in
-$bg.css('display', 'block').hide().fadeIn(200, () => {
-  if (!app.shouldIgnoreVideo && entered) {
-    try {
-      if (app.videoElement) {
-        app.videoElement.muted = false;
-        app.videoElement.play().catch(() => {});
-      }
-      if (app.audioElement) {
-        app.audioElement.muted = false;
-        app.audioElement.play().catch(() => {});
-      }
-    } catch (e) {}
-  }
-
-  // set volume AFTER start to avoid some browser weirdness
-  if (!app.shouldIgnoreVideo && entered && app.audioElement) {
-    try { app.audioElement.volume = app.musicVolume || 0.5; } catch(e){}
-  }
-});
-
-$('.marquee-container').css('visibility', 'visible').hide().fadeIn(100);
-$('.marquee-container').animateCss('zoomIn');
-$('.container').fadeIn();
-          if (!app.shouldIgnoreVideo && entered && app.audioElement) {
+      // SHOW background only after intro is gone
+      safeTimeout(function () {
+        var $bg = $('.background');
+        $bg.stop(true, true);
+        $bg.css('display', 'block').hide().fadeIn(200, function () {
+          if (!app.shouldIgnoreVideo && entered) {
             try {
-              app.audioElement.volume = app.musicVolume || 0.5;
+              if (app.videoElement) {
+                app.videoElement.muted = false;
+                app.videoElement.play();
+              }
+              if (app.audioElement) {
+                app.audioElement.muted = false;
+                app.audioElement.play();
+              }
             } catch (e) {}
           }
+
+          if (!app.shouldIgnoreVideo && entered && app.audioElement) {
+            try { app.audioElement.volume = app.musicVolume || 0.5; } catch (e2) {}
+          }
         });
+
+        // persist video time
+        if (app.videoElement && !app._timeupdateBound) {
+          app._timeupdateBound = true;
+          app.videoElement.addEventListener('timeupdate', function () {
+            try { $.cookie('videoTime', app.videoElement.currentTime, { expires: 1 }); } catch (e3) {}
+          }, false);
+        }
+
+        $('.marquee-container').css('visibility', 'visible').hide().fadeIn(100);
+        $('.marquee-container').animateCss('zoomIn');
+        $('.container').fadeIn();
+
       }, 200);
     });
-};
-
-
+  }
+}
